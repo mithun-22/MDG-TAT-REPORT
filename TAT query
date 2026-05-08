@@ -1,0 +1,527 @@
+-- ================================================================
+-- SAP MDG TAT REPORT — EXACT BIGQUERY SQL
+-- GCP Project : drl-centrummdm-prod
+-- Dataset     : sap_landing_zone
+-- ================================================================
+-- TABLES CONFIRMED FROM YOUR BIGQUERY SCREENSHOTS:
+--   1. SAP_TRANSP_USMD120C   — Change Request Header
+--   2. SAP_TRANSP_USMD1213   — Change Request Objects (Material link)
+--   3. SAP_TRANSP_USMD2400   — CR to Workflow Bridge
+--   4. SAP_TRANSP_SWWWIHEAD  — Workflow Header
+--   5. SAP_TRANSP_SWWLOGHIST — Workflow History (TAT timestamps)
+-- ================================================================
+-- HOW TO RUN:
+--   1. Go to console.cloud.google.com → BigQuery
+--   2. Click "+ Compose new query"  
+--   3. Paste this entire query
+--   4. Click RUN
+--   5. Save result as a VIEW (instructions at bottom)
+-- ================================================================
+
+
+-- ================================================================
+-- TABLE 1: SAP_TRANSP_USMD120C — CHANGE REQUEST HEADER
+-- REAL FIELDS SEEN IN YOUR BIGQUERY:
+--   MANDT, USMD_CREQUEST, USMD_CREQ_TYPE, USMD_EDITION,
+--   USMD_CREQ_STATUS, USMD_CREQ_TEXT, USMD_CREATED_AT (NUMERIC),
+--   USMD_CREATED_BY, USMD_CHANGED_AT (NUMERIC), USMD_CHANGED_BY,
+--   USMD_RELEASED_AT (NUMERIC), USMD_RELEASED_BY,
+--   USMD_DATA_CHN_AT (NUMERIC), USMD_DATA_ACTIVE,
+--   USMD_DRAFT_STEP, USMD_PRIORITY, USMD_DUE_DATE (TIMESTAMP),
+--   USMD_REASON, USMD_REASON_REJ, USMD_CREQUEST_RE,
+--   USMD_REPLIC_MODE
+-- ================================================================
+
+-- ================================================================
+-- TABLE 2: SAP_TRANSP_USMD2400 — WORKFLOW BRIDGE
+-- REAL FIELDS SEEN IN YOUR BIGQUERY:
+--   MANDT, TOP_WI_ID, USMD_CREQUEST
+-- (Only 3 fields — simple bridge table)
+-- ================================================================
+
+-- ================================================================
+-- TABLE 3: SAP_TRANSP_SWWWIHEAD — WORKFLOW HEADER
+-- REAL FIELDS SEEN IN YOUR BIGQUERY:
+--   CLIENT, WI_ID, WI_TYPE, WI_CREATOR, WI_LANG, WI_TEXT,
+--   WI_RHTEXT, WI_STAT, WI_CD (TIMESTAMP), WI_CT (TIMESTAMP),
+--   WI_AED (TIMESTAMP), WI_AAGENT, WI_AADDR, WI_CRUSER,
+--   WI_CRADDR, WI_CHCKWI, WI_CBFB, WI_RH_TASK, WI_PRIO,
+--   WI_CONFIRM, WI_COMP_EV, WI_FORW_BY, WI_DISABLE, WI_REJECT,
+--   TCLASS, NOTE_EXIST, NOTIFY, RETRY_CNT, MAX_RETRY,
+--   RC_MODELED, CB_DONE, HANDLE, SYNCCHAIN, NO_DEADL,
+--   WI_DH_STAT, WI_RELEASE, WLC_DISPL, WI_RESTLOG,
+--   WF_TYPE, WLC_FLAGS, XMLPROT, WAIT4CB, TOP_WI_ID,
+--   DEF_GUID, EXEC_TIME, NOTE_COUNT, PRS_PROFIL, CREA_TMP,
+--   CHECK_STAT, BLOCKTYPE, PARENT_WI, RNDNUMBER, WFD_ID,
+--   WFD_VERSION, WFD_EXETYP, PROCCAT, TOP_TASK,
+--   AGING_STATE, AGING_TEMPERATURE, WLC_FLAGS_EXT,
+--   WI_AED_TIMESTAMP (NUMERIC), REFERENCE_NODEID
+-- ================================================================
+
+-- ================================================================
+-- TABLE 4: SAP_TRANSP_SWWLOGHIST — WORKFLOW HISTORY (TAT KEY)
+-- REAL FIELDS SEEN IN YOUR BIGQUERY:
+--   CLIENT, WI_ID, METHOD, METH_EDATE (TIMESTAMP),
+--   METH_ETIME (TIMESTAMP), LOG_COUNT, METH_USER, CODE,
+--   ERRORTYPE, WORKAREA, MESSAGE, VARIABLE1-4, MSGTYPE,
+--   PARA_NAM_1, PARA_VAL_1, PARA_NAM_2..., TIMESTAMP (NUMERIC),
+--   SECT1-5, CHI_LOGKEY, PAR_LOGKEY, TECH_USER, _DATAAGING
+-- ================================================================
+
+
+-- ================================================================
+-- STEP 1: CONVERT SAP NUMERIC TIMESTAMPS TO REAL TIMESTAMPS
+-- SAP stores timestamps as NUMERIC e.g. 20240115133045
+-- = 2024-01-15 13:30:45
+-- We use PARSE_TIMESTAMP to convert
+-- ================================================================
+WITH
+
+-- ── CR HEADER ─────────────────────────────────────────────────
+CR_BASE AS (
+  SELECT
+    USMD_CREQUEST,
+    USMD_CREQ_TYPE                                    AS cr_type,
+    USMD_CREQ_STATUS                                  AS cr_status,
+    USMD_CREQ_TEXT                                    AS cr_description,
+    USMD_CREATED_BY                                   AS created_by,
+
+    -- Convert SAP numeric timestamp → real timestamp
+    -- USMD_CREATED_AT is NUMERIC e.g. 20240115133045
+    SAFE.PARSE_TIMESTAMP(
+      '%Y%m%d%H%M%S',
+      LPAD(CAST(CAST(USMD_CREATED_AT AS INT64) AS STRING), 14, '0')
+    )                                                 AS created_on,
+
+    USMD_CHANGED_BY                                   AS last_changed_by,
+    SAFE.PARSE_TIMESTAMP(
+      '%Y%m%d%H%M%S',
+      LPAD(CAST(CAST(USMD_CHANGED_AT AS INT64) AS STRING), 14, '0')
+    )                                                 AS last_changed_on,
+
+    USMD_RELEASED_BY                                  AS released_by,
+    SAFE.PARSE_TIMESTAMP(
+      '%Y%m%d%H%M%S',
+      LPAD(CAST(CAST(USMD_RELEASED_AT AS INT64) AS STRING), 14, '0')
+    )                                                 AS released_on,
+
+    USMD_PRIORITY                                     AS priority,
+    USMD_DUE_DATE                                     AS due_date,
+    USMD_REASON                                       AS reason,
+    USMD_DRAFT_STEP                                   AS draft_step,
+    USMD_DATA_ACTIVE                                  AS data_active,
+    USMD_EDITION                                      AS edition
+
+  FROM `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C`
+),
+
+
+-- ── MATERIAL OBJECTS ──────────────────────────────────────────
+-- SAP_TRANSP_USMD1213: Links CR → Material
+-- NOTE: Your images showed USMD_CREQUEST, USMD_ENTITY, USMD_VALUE
+-- Filter USMD_ENTITY = 'MATERIAL' to get material records only
+CR_MATERIAL AS (
+  SELECT
+    USMD_CREQUEST,
+    USMD_VALUE                                        AS material_code,
+    USMD_ENTITY                                       AS entity_type,
+    USMD_ENTITY_OBJ                                   AS entity_obj,
+    ROW_NUMBER() OVER (
+      PARTITION BY USMD_CREQUEST
+      ORDER BY USMD_VALUE
+    )                                                 AS rn
+  FROM `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213`
+  WHERE USMD_ENTITY = 'MATERIAL'
+),
+
+CR_MAT_DEDUP AS (
+  -- One material per CR (take first if multiple)
+  SELECT * FROM CR_MATERIAL WHERE rn = 1
+),
+
+
+-- ── WORKFLOW BRIDGE ───────────────────────────────────────────
+-- SAP_TRANSP_USMD2400: Only 3 fields — MANDT, TOP_WI_ID, USMD_CREQUEST
+-- This is your JOIN bridge between CR and Workflow
+WF_BRIDGE AS (
+  SELECT
+    USMD_CREQUEST,
+    TOP_WI_ID                                         AS top_wi_id
+  FROM `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD2400`
+),
+
+
+-- ── WORKFLOW HEADER ───────────────────────────────────────────
+-- SAP_TRANSP_SWWWIHEAD
+-- Key fields: WI_ID, TOP_WI_ID, WI_TYPE, WI_STAT, WI_CD, WI_AED
+-- WI_CD  = Workflow Created Datetime (TIMESTAMP) ← TAT START
+-- WI_AED = Workflow Actual End Datetime (TIMESTAMP) ← useful reference
+-- TOP_TASK = 'WS60800086' (your workflow task filter)
+WF_HEAD AS (
+  SELECT
+    WI_ID,
+    TOP_WI_ID,
+    WI_TYPE,
+    WI_STAT                                           AS wf_status,
+    WI_CREATOR                                        AS wf_creator,
+    WI_TEXT                                           AS wf_description,
+    WI_PRIO                                           AS wf_priority,
+    WI_CD                                             AS wf_created_ts,
+    WI_CT                                             AS wf_ct_ts,
+    WI_AED                                            AS wf_end_ts,
+    WI_AAGENT                                         AS assigned_agent,
+    TOP_TASK,
+    WI_RH_TASK,
+    PARENT_WI,
+
+    -- WI_AED_TIMESTAMP is NUMERIC — convert it
+    SAFE.PARSE_TIMESTAMP(
+      '%Y%m%d%H%M%S',
+      LPAD(CAST(CAST(WI_AED_TIMESTAMP AS INT64) AS STRING), 14, '0')
+    )                                                 AS wf_end_numeric_ts
+
+  FROM `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_SWWWIHEAD`
+  WHERE WI_TYPE = 'W'                  -- W = Top-level Workflow only
+    AND TOP_TASK = 'WS60800086'        -- Your workflow task ID
+),
+
+
+-- ── WORKFLOW HISTORY EVENTS ───────────────────────────────────
+-- SAP_TRANSP_SWWLOGHIST
+-- KEY FIELDS FOR TAT:
+--   WI_ID     → join key to SWWWIHEAD
+--   METHOD    → the event type (what happened)
+--   METH_EDATE, METH_ETIME → TIMESTAMP fields for when it happened
+--   METH_USER → who performed this action (Finalized By)
+--   TIMESTAMP  → NUMERIC backup timestamp
+--
+-- KEY METHOD VALUES:
+--   SWW_WI_CREATE              = Workflow Created   ← TAT START
+--   SWW_WI_EXIT_ACTIVATED      = Step Assigned/Activated
+--   SWW_WI_STATUS_TO_COMPLETED = Workflow Completed ← TAT END ✅
+WF_HIST_FILTERED AS (
+  SELECT
+    WI_ID,
+    METHOD,
+    METH_USER                                         AS action_user,
+    -- METH_EDATE is TIMESTAMP type — use directly
+    METH_EDATE                                        AS action_ts,
+    -- Backup: TIMESTAMP field (NUMERIC) if METH_EDATE is null
+    SAFE.PARSE_TIMESTAMP(
+      '%Y%m%d%H%M%S',
+      LPAD(CAST(CAST(TIMESTAMP AS INT64) AS STRING), 14, '0')
+    )                                                 AS action_ts_backup,
+    TECH_USER,
+    LOG_COUNT
+
+  FROM `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_SWWLOGHIST`
+  WHERE METHOD IN (
+    'SWW_WI_CREATE',               -- Workflow Created
+    'SWW_WI_EXIT_ACTIVATED',       -- Activated / Assigned
+    'SWW_WI_STATUS_TO_COMPLETED'   -- Completed ✅
+  )
+),
+
+-- Use METH_EDATE if available, else fall back to TIMESTAMP (NUMERIC)
+WF_HIST AS (
+  SELECT
+    WI_ID,
+    METHOD,
+    action_user,
+    COALESCE(action_ts, action_ts_backup)             AS final_action_ts
+  FROM WF_HIST_FILTERED
+),
+
+
+-- ── PIVOT TIMESTAMPS: ONE ROW PER WI_ID ──────────────────────
+WF_TIMESTAMPS AS (
+  SELECT
+    WI_ID,
+
+    -- TAT START: when workflow was first created
+    MIN(CASE WHEN METHOD = 'SWW_WI_CREATE'
+        THEN final_action_ts END)                     AS wf_start_ts,
+
+    -- ACTIVATION: when someone first picked it up
+    MIN(CASE WHEN METHOD = 'SWW_WI_EXIT_ACTIVATED'
+        THEN final_action_ts END)                     AS wf_activated_ts,
+
+    -- TAT END: when workflow was completed
+    MIN(CASE WHEN METHOD = 'SWW_WI_STATUS_TO_COMPLETED'
+        THEN final_action_ts END)                     AS wf_completed_ts,
+
+    -- WHO FINALIZED IT — maps to "Finalized By" in your filter list
+    MAX(CASE WHEN METHOD = 'SWW_WI_STATUS_TO_COMPLETED'
+        THEN action_user END)                         AS finalized_by
+
+  FROM WF_HIST
+  GROUP BY WI_ID
+),
+
+
+-- ================================================================
+-- STEP 2: JOIN ALL 5 TABLES TOGETHER
+-- CR → BRIDGE → WF_HEAD → WF_TIMESTAMPS
+--      ↓
+--   MATERIAL
+-- ================================================================
+MASTER_TABLE AS (
+  SELECT
+
+    -- ── CR IDENTIFICATION ──────────────────────────────────────
+    cr.USMD_CREQUEST                                  AS change_request_number,
+    cr.cr_type                                        AS change_request_type,
+    cr.cr_status,
+    cr.cr_description,
+    cr.edition,
+
+    -- ── CREATED BY / ON (Filter: From & To) ───────────────────
+    cr.created_by,
+    cr.created_on,
+    DATE(cr.created_on)                               AS created_date,
+
+    -- ── MATERIAL (Filter: From & To + Multiple) ───────────────
+    mat.material_code,
+    mat.entity_type,
+
+    -- ── WORKFLOW INFO ──────────────────────────────────────────
+    wfh.wf_status,
+    wfh.wf_creator,
+    wfh.assigned_agent,
+    wfh.wf_priority,
+    wfh.TOP_TASK,
+    wfh.WI_RH_TASK,
+    wfh.wf_created_ts,
+    wfh.wf_end_ts,
+
+    -- ── TAT TIMESTAMPS ─────────────────────────────────────────
+    wf_ts.wf_start_ts,
+    wf_ts.wf_activated_ts,
+    wf_ts.wf_completed_ts,
+
+    -- ── FINALIZED BY / ON (Filter: One Input + From & To) ─────
+    wf_ts.finalized_by,
+    DATE(wf_ts.wf_completed_ts)                       AS finalized_on,
+
+    -- ── OTHER CR FIELDS ────────────────────────────────────────
+    cr.last_changed_by,
+    cr.last_changed_on,
+    cr.released_by,
+    cr.released_on,
+    cr.priority,
+    cr.due_date,
+    cr.reason,
+    cr.draft_step,
+
+    -- ================================================================
+    -- ✅ TAT CALCULATION COLUMNS
+    -- Source: wf_start_ts (SWW_WI_CREATE) → wf_completed_ts (SWW_WI_STATUS_TO_COMPLETED)
+    -- ================================================================
+
+    -- Total TAT in MINUTES
+    TIMESTAMP_DIFF(
+      wf_ts.wf_completed_ts,
+      wf_ts.wf_start_ts,
+      MINUTE
+    )                                                 AS tat_minutes,
+
+    -- Total TAT in HOURS (rounded to 1 decimal)
+    ROUND(
+      TIMESTAMP_DIFF(wf_ts.wf_completed_ts, wf_ts.wf_start_ts, MINUTE) / 60.0,
+      1
+    )                                                 AS tat_hours,
+
+    -- Total TAT in DAYS (rounded to 1 decimal)
+    ROUND(
+      TIMESTAMP_DIFF(wf_ts.wf_completed_ts, wf_ts.wf_start_ts, MINUTE) / 60.0 / 24.0,
+      1
+    )                                                 AS tat_days,
+
+    -- Time to ACTIVATE (how long before someone picked it up)
+    ROUND(
+      TIMESTAMP_DIFF(wf_ts.wf_activated_ts, wf_ts.wf_start_ts, MINUTE) / 60.0,
+      1
+    )                                                 AS time_to_activate_hours,
+
+    -- Time to COMPLETE after activation
+    ROUND(
+      TIMESTAMP_DIFF(wf_ts.wf_completed_ts, wf_ts.wf_activated_ts, MINUTE) / 60.0,
+      1
+    )                                                 AS time_to_complete_hours,
+
+    -- ================================================================
+    -- ✅ SLA STATUS (48 hours = your SLA — change if needed)
+    -- ================================================================
+    CASE
+      WHEN wf_ts.wf_completed_ts IS NULL
+        THEN 'In Progress'
+      WHEN TIMESTAMP_DIFF(
+             wf_ts.wf_completed_ts, wf_ts.wf_start_ts, HOUR
+           ) > 48
+        THEN 'SLA Breached'
+      ELSE 'Within SLA'
+    END                                               AS sla_status,
+
+    -- Hours over/under SLA (negative = good, positive = breached)
+    TIMESTAMP_DIFF(
+      wf_ts.wf_completed_ts, wf_ts.wf_start_ts, HOUR
+    ) - 48                                            AS hours_vs_sla,
+
+    -- ================================================================
+    -- ✅ REPORT TIMESTAMP (when this row was generated)
+    -- ================================================================
+    CURRENT_TIMESTAMP()                               AS report_generated_at
+
+  FROM CR_BASE cr
+
+  -- JOIN 1: CR → Material (USMD1213)
+  LEFT JOIN CR_MAT_DEDUP mat
+    ON cr.USMD_CREQUEST = mat.USMD_CREQUEST
+
+  -- JOIN 2: CR → Workflow Bridge (USMD2400)
+  LEFT JOIN WF_BRIDGE bridge
+    ON cr.USMD_CREQUEST = bridge.USMD_CREQUEST
+
+  -- JOIN 3: Bridge → Workflow Header (SWWWIHEAD)
+  LEFT JOIN WF_HEAD wfh
+    ON bridge.top_wi_id = wfh.TOP_WI_ID
+
+  -- JOIN 4: Workflow Header → Timestamps from History (SWWLOGHIST)
+  LEFT JOIN WF_TIMESTAMPS wf_ts
+    ON wfh.WI_ID = wf_ts.WI_ID
+)
+
+
+-- ================================================================
+-- FINAL SELECT — THE COMPLETE TAT REPORT
+-- All 14 filter fields from your stakeholder image are here
+-- ================================================================
+SELECT
+  -- Report columns in stakeholder-friendly order
+  change_request_number,        -- Filter: Change Request Number (From & To)
+  change_request_type,          -- Filter: Change Request Type (From & To)
+  cr_status,                    -- Filter: CR Status (One Input)
+  cr_description,
+
+  -- Who & When Created
+  created_by,                   -- Filter: Created By (Employee Name & ID)
+  created_date,                 -- Filter: Created On (From & To)
+  created_on,
+
+  -- Material Info
+  material_code,                -- Filter: Material Code (From & To + Multiple)
+  entity_type,
+
+  -- Workflow Finalization
+  finalized_by,                 -- Filter: Finalized By (Employee Name & ID)
+  finalized_on,                 -- Filter: Finalized On (From & To)
+
+  -- TAT Numbers (what the report is about)
+  wf_start_ts,
+  wf_activated_ts,
+  wf_completed_ts,
+  tat_minutes,
+  tat_hours,
+  tat_days,
+  time_to_activate_hours,
+  time_to_complete_hours,
+  hours_vs_sla,
+
+  -- SLA Decision
+  sla_status,
+
+  -- Additional useful columns
+  wf_status,
+  priority,
+  due_date,
+  reason,
+  assigned_agent,
+  released_by,
+  released_on,
+  last_changed_by,
+  last_changed_on,
+  report_generated_at
+
+FROM MASTER_TABLE
+
+-- ================================================================
+-- STAKEHOLDER FILTERS — uncomment and fill values as needed
+-- ================================================================
+WHERE 1=1
+  -- AND change_request_type BETWEEN 'ZMAT01' AND 'ZMAT99'
+  -- AND change_request_number BETWEEN '70000' AND '80000'
+  -- AND cr_status = '05'
+  -- AND created_by = 'P900012673'
+  -- AND created_date BETWEEN '2024-01-01' AND '2024-12-31'
+  -- AND finalized_by = 'P900010348'
+  -- AND finalized_on BETWEEN '2024-01-01' AND '2024-12-31'
+  -- AND material_code IN ('75419', '75420')
+  -- AND sla_status = 'SLA Breached'
+
+ORDER BY created_on DESC, change_request_number;
+
+
+-- ================================================================
+-- ✅ SAVE THIS AS A BIGQUERY VIEW (DO THIS ONCE)
+-- Then Power BI connects to this view directly
+-- Run this separately in BigQuery:
+-- ================================================================
+/*
+CREATE OR REPLACE VIEW
+  `drl-centrummdm-prod.sap_landing_zone.V_MDG_TAT_REPORT`
+AS
+  -- paste the entire query above (WITH ... SELECT ... FROM MASTER_TABLE)
+  -- every time source tables refresh, this view auto-refreshes too
+;
+*/
+
+
+-- ================================================================
+-- BONUS: SUMMARY KPI QUERY (for Power BI KPI cards)
+-- Run separately and name it: V_MDG_TAT_SUMMARY
+-- ================================================================
+/*
+SELECT
+  COUNT(*)                                            AS total_crs,
+  COUNTIF(sla_status = 'Within SLA')                 AS within_sla_count,
+  COUNTIF(sla_status = 'SLA Breached')               AS breached_count,
+  COUNTIF(sla_status = 'In Progress')                AS in_progress_count,
+  ROUND(AVG(tat_hours), 1)                           AS avg_tat_hours,
+  ROUND(AVG(tat_days), 1)                            AS avg_tat_days,
+  MAX(tat_hours)                                     AS max_tat_hours,
+  MIN(tat_hours)                                     AS min_tat_hours,
+  ROUND(
+    COUNTIF(sla_status = 'SLA Breached') * 100.0 / COUNT(*), 1
+  )                                                  AS breach_pct,
+  FORMAT_TIMESTAMP('%d-%b-%Y %H:%M', CURRENT_TIMESTAMP()) AS as_of
+FROM `drl-centrummdm-prod.sap_landing_zone.V_MDG_TAT_REPORT`;
+*/
+
+-- ================================================================
+-- BONUS: MONTHLY TREND (for Power BI line chart)
+-- ================================================================
+/*
+SELECT
+  FORMAT_DATE('%Y-%m', created_date)                 AS month,
+  COUNT(*)                                           AS total_crs,
+  ROUND(AVG(tat_hours), 1)                           AS avg_tat_hours,
+  COUNTIF(sla_status = 'SLA Breached')               AS breached_count,
+  ROUND(COUNTIF(sla_status='SLA Breached')*100.0/COUNT(*),1) AS breach_pct
+FROM `drl-centrummdm-prod.sap_landing_zone.V_MDG_TAT_REPORT`
+GROUP BY month
+ORDER BY month;
+*/
+
+-- ================================================================
+-- BONUS: BY CR TYPE (for Power BI bar chart)
+-- ================================================================
+/*
+SELECT
+  change_request_type,
+  COUNT(*)                                           AS total_crs,
+  ROUND(AVG(tat_hours), 1)                           AS avg_tat_hours,
+  COUNTIF(sla_status = 'SLA Breached')               AS breached_count
+FROM `drl-centrummdm-prod.sap_landing_zone.V_MDG_TAT_REPORT`
+GROUP BY change_request_type
+ORDER BY total_crs DESC;
+*/
