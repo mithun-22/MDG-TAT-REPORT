@@ -2,18 +2,22 @@ WITH REPORT_B AS (
 
 SELECT
 
-    a.USMD_CREQUEST                                            AS CR_NUMBER,
+    a.USMD_CREQUEST AS CR_NUMBER,
 
-    b.USMD_VALUE                                               AS CHARACTERISTIC_VALUE,
+    b.USMD_VALUE AS CHARACTERISTIC_VALUE,
 
-    c.USMD_VALUE                                               AS MATERIAL,
-
-    RIGHT(TRIM(b.USMD_VALUE), 5)                               AS PLANT,
+    c.USMD_VALUE AS MATERIAL,
 
     CONCAT(
-        IFNULL(c.USMD_VALUE, ''),
-        RIGHT(TRIM(b.USMD_VALUE), 5)
-    )                                                          AS PRIMARY_KEY
+        a.USMD_CREQUEST,
+        c.USMD_VALUE,
+        'Plant'
+    ) AS PLANT,
+
+    CONCAT(
+        a.USMD_CREQUEST,
+        c.USMD_VALUE
+    ) AS PRIMARY_KEY
 
 FROM
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
@@ -43,8 +47,15 @@ a.USMD_CREQ_TYPE IN (
 
 AND b.USMD_VALUE IS NOT NULL
 
+AND c.USMD_VALUE IS NOT NULL
+
 )
 
-SELECT *
+SELECT DISTINCT
+CR_NUMBER,
+CHARACTERISTIC_VALUE,
+MATERIAL,
+PLANT,
+PRIMARY_KEY
 FROM REPORT_B
 LIMIT 100;
