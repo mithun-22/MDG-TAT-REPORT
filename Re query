@@ -1,57 +1,48 @@
 WITH BASE_DATA AS (
 
 SELECT
-    a.USMD_CREQUEST                                       AS CR_NUMBER,
-    a.USMD_CREQ_TYPE                                      AS TYPE_OF_CHANGE_REQUEST,
-    a.USMD_CREQ_TEXT                                      AS DESCRIPTION_LONG_TEXT,
 
-    a.USMD_CREATED_BY                                     AS CREATED_BY,
+    a.USMD_CREQUEST AS CR_NUMBER,
+    a.USMD_CREQ_TYPE AS TYPE_OF_CHANGE_REQUEST,
+    a.USMD_CREQ_TEXT AS DESCRIPTION_LONG_TEXT,
 
-    PARSE_TIMESTAMP(
+    a.USMD_CREATED_BY AS CREATED_BY,
+
+    SAFE.PARSE_TIMESTAMP(
         '%Y%m%d%H%M%S',
         CAST(a.USMD_CREATED_AT AS STRING)
-    )                                                     AS CREATED_DATE,
+    ) AS CREATED_DATE,
 
-    a.USMD_RELEASED_BY                                    AS RELEASED_BY,
+    a.USMD_RELEASED_BY AS RELEASED_BY,
 
-    PARSE_TIMESTAMP(
+    SAFE.PARSE_TIMESTAMP(
         '%Y%m%d%H%M%S',
         CAST(a.USMD_RELEASED_AT AS STRING)
-    )                                                     AS RELEASED_DATE,
+    ) AS RELEASED_DATE,
 
-    a.USMD_CREQ_STATUS                                    AS CR_STATUS,
+    a.USMD_CREQ_STATUS AS CR_STATUS,
 
-    b.USMD_VALUE                                          AS CHARACTERISTIC_VALUE,
+    b.USMD_ENTITY,
+    b.USMD_VALUE AS CHARACTERISTIC_VALUE,
 
-    c.TOP_WI_ID                                           AS TOP_WI_ID,
+    c.TOP_WI_ID AS TOP_WI_ID,
 
-    d.WI_AAGENT                                           AS APPROVER_1_NAME,
-
-    d.WI_CREATOR                                          AS APPROVER_1_DEPT,
+    d.WI_AAGENT AS APPROVER_1_NAME,
+    d.WI_CREATOR AS APPROVER_1_DEPT,
 
     TIMESTAMP_DIFF(
-        PARSE_TIMESTAMP(
+        SAFE.PARSE_TIMESTAMP(
             '%Y%m%d%H%M%S',
             CAST(a.USMD_RELEASED_AT AS STRING)
         ),
-        PARSE_TIMESTAMP(
-            '%Y%m%d%H%M%S',
-            CAST(a.USMD_CREATED_AT AS STRING)
-        ),
-        HOUR
-    )                                                     AS OVERALL_TAT_HOURS,
 
-    TIMESTAMP_DIFF(
-        PARSE_TIMESTAMP(
-            '%Y%m%d%H%M%S',
-            CAST(a.USMD_RELEASED_AT AS STRING)
-        ),
-        PARSE_TIMESTAMP(
+        SAFE.PARSE_TIMESTAMP(
             '%Y%m%d%H%M%S',
             CAST(a.USMD_CREATED_AT AS STRING)
         ),
+
         HOUR
-    )                                                     AS APPROVER_1_TAT
+    ) AS OVERALL_TAT_HOURS
 
 FROM
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
@@ -68,18 +59,19 @@ LEFT JOIN
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_SWWWIHEAD` d
 ON c.TOP_WI_ID = d.WI_ID
 
-WHERE
-a.USMD_CREQ_STATUS = '0.5'
-AND b.USMD_ENTITY = 'MATERIAL'
+WHERE a.USMD_CREQUEST IS NOT NULL
 
 )
 
 SELECT
+
     CR_NUMBER,
     TYPE_OF_CHANGE_REQUEST,
     DESCRIPTION_LONG_TEXT,
+
     CREATED_BY,
     CREATED_DATE,
+
     RELEASED_BY,
     RELEASED_DATE,
 
@@ -89,15 +81,36 @@ SELECT
     ) AS OVERALL_TAT,
 
     CHARACTERISTIC_VALUE,
+
     TOP_WI_ID,
 
     APPROVER_1_NAME,
     APPROVER_1_DEPT,
 
     CONCAT(
-        CAST(APPROVER_1_TAT AS STRING),
+        CAST(OVERALL_TAT_HOURS AS STRING),
         ' Hours'
-    ) AS APPROVER_1_TAT
+    ) AS APPROVER_1_TAT,
+
+    NULL AS APPROVER_2_NAME,
+    NULL AS APPROVER_2_DEPT,
+    NULL AS APPROVER_2_TAT,
+
+    NULL AS APPROVER_3_NAME,
+    NULL AS APPROVER_3_DEPT,
+    NULL AS APPROVER_3_TAT,
+
+    NULL AS APPROVER_4_NAME,
+    NULL AS APPROVER_4_DEPT,
+    NULL AS APPROVER_4_TAT,
+
+    NULL AS APPROVER_5_NAME,
+    NULL AS APPROVER_5_DEPT,
+    NULL AS APPROVER_5_TAT,
+
+    NULL AS APPROVER_6_NAME,
+    NULL AS APPROVER_6_DEPT,
+    NULL AS APPROVER_6_TAT
 
 FROM BASE_DATA
 
