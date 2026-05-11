@@ -1,257 +1,187 @@
-SELECT
+WITH FINAL_REPORT AS (
 
-    ----------------------------------------------------------------
-    -- BASIC DETAILS
-    ----------------------------------------------------------------
+SELECT
 
     a.USMD_CREQUEST                                   AS CR_NUMBER,
 
-    a.USMD_CREQ_STATUS                                AS CREQ_STATUS,
+    '05'                                              AS TYPE_OF_CHANGE_REQUEST,
 
     a.USMD_CREQ_TEXT                                  AS DESCRIPTION_LONG_TEXT,
 
     a.USMD_CREATED_BY                                 AS CREATED_BY,
 
-    TIMESTAMP_MICROS(
-        CAST(a.USMD_CREATED_AT AS INT64)
+    PARSE_TIMESTAMP(
+        '%Y%m%d%H%M%S',
+        CAST(a.USMD_CREATED_AT AS STRING)
     )                                                 AS CREATED_DATE,
-
-    ----------------------------------------------------------------
-    -- APPROVER DETAILS
-    ----------------------------------------------------------------
 
     a.USMD_RELEASED_BY                                AS RELEASED_BY,
 
-    TIMESTAMP_MICROS(
-        CAST(a.USMD_RELEASED_AT AS INT64)
+    PARSE_TIMESTAMP(
+        '%Y%m%d%H%M%S',
+        CAST(a.USMD_RELEASED_AT AS STRING)
     )                                                 AS RELEASED_DATE,
-
-    ----------------------------------------------------------------
-    -- OVERALL TAT
-    ----------------------------------------------------------------
 
     ROUND(
 
         TIMESTAMP_DIFF(
 
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_RELEASED_AT AS STRING)
             ),
 
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_CREATED_AT AS STRING)
             ),
 
-            HOUR
+            MINUTE
 
-        ),
+        ) / 60.0,
 
         2
 
     )                                                 AS OVERALL_TAT_HOURS,
 
-    ----------------------------------------------------------------
-    -- CHARACTERISTIC VALUE
-    ----------------------------------------------------------------
+    CASE
+
+        WHEN ROUND(
+
+            TIMESTAMP_DIFF(
+
+                PARSE_TIMESTAMP(
+                    '%Y%m%d%H%M%S',
+                    CAST(a.USMD_RELEASED_AT AS STRING)
+                ),
+
+                PARSE_TIMESTAMP(
+                    '%Y%m%d%H%M%S',
+                    CAST(a.USMD_CREATED_AT AS STRING)
+                ),
+
+                HOUR
+
+            ),
+
+            2
+
+        ) >= 24
+
+        THEN CONCAT(
+
+            CAST(
+
+                FLOOR(
+
+                    TIMESTAMP_DIFF(
+
+                        PARSE_TIMESTAMP(
+                            '%Y%m%d%H%M%S',
+                            CAST(a.USMD_RELEASED_AT AS STRING)
+                        ),
+
+                        PARSE_TIMESTAMP(
+                            '%Y%m%d%H%M%S',
+                            CAST(a.USMD_CREATED_AT AS STRING)
+                        ),
+
+                        HOUR
+
+                    ) / 24
+
+                ) AS STRING
+
+            ),
+
+            ' Days'
+
+        )
+
+        ELSE CONCAT(
+
+            CAST(
+
+                ROUND(
+
+                    TIMESTAMP_DIFF(
+
+                        PARSE_TIMESTAMP(
+                            '%Y%m%d%H%M%S',
+                            CAST(a.USMD_RELEASED_AT AS STRING)
+                        ),
+
+                        PARSE_TIMESTAMP(
+                            '%Y%m%d%H%M%S',
+                            CAST(a.USMD_CREATED_AT AS STRING)
+                        ),
+
+                        MINUTE
+
+                    ) / 60.0,
+
+                    2
+
+                ) AS STRING
+
+            ),
+
+            ' Hours'
+
+        )
+
+    END                                               AS OVERALL_TAT,
 
     b.USMD_VALUE                                      AS CHARACTERISTIC_VALUE,
 
-    ----------------------------------------------------------------
-    -- WORKFLOW
-    ----------------------------------------------------------------
-
-    c.TOP_WI_ID                                       AS TOP_WI_ID,
-
-    ----------------------------------------------------------------
-    -- APPROVER 1
-    ----------------------------------------------------------------
+    d.TOP_WI_ID                                       AS TOP_WI_ID,
 
     a.USMD_RELEASED_BY                                AS APPROVER_1_NAME,
 
-    w.WI_CREATOR                                      AS APPROVER_1_DEPT,
+    'MDG_APPROVAL'                                    AS APPROVER_1_DEPT,
 
     ROUND(
 
         TIMESTAMP_DIFF(
 
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_RELEASED_AT AS STRING)
             ),
 
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_CREATED_AT AS STRING)
             ),
 
-            HOUR
+            MINUTE
 
-        ),
+        ) / 60.0,
 
         2
 
-    )                                                 AS APPROVER_1_TAT,
-
-    ----------------------------------------------------------------
-    -- APPROVER 2
-    ----------------------------------------------------------------
-
-    a.USMD_RELEASED_BY                                AS APPROVER_2_NAME,
-
-    w.WI_CREATOR                                      AS APPROVER_2_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
-            ),
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
-            ),
-
-            HOUR
-
-        ),
-
-        2
-
-    )                                                 AS APPROVER_2_TAT,
-
-    ----------------------------------------------------------------
-    -- APPROVER 3
-    ----------------------------------------------------------------
-
-    a.USMD_RELEASED_BY                                AS APPROVER_3_NAME,
-
-    w.WI_CREATOR                                      AS APPROVER_3_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
-            ),
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
-            ),
-
-            HOUR
-
-        ),
-
-        2
-
-    )                                                 AS APPROVER_3_TAT,
-
-    ----------------------------------------------------------------
-    -- APPROVER 4
-    ----------------------------------------------------------------
-
-    a.USMD_RELEASED_BY                                AS APPROVER_4_NAME,
-
-    w.WI_CREATOR                                      AS APPROVER_4_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
-            ),
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
-            ),
-
-            HOUR
-
-        ),
-
-        2
-
-    )                                                 AS APPROVER_4_TAT,
-
-    ----------------------------------------------------------------
-    -- APPROVER 5
-    ----------------------------------------------------------------
-
-    a.USMD_RELEASED_BY                                AS APPROVER_5_NAME,
-
-    w.WI_CREATOR                                      AS APPROVER_5_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
-            ),
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
-            ),
-
-            HOUR
-
-        ),
-
-        2
-
-    )                                                 AS APPROVER_5_TAT,
-
-    ----------------------------------------------------------------
-    -- APPROVER 6
-    ----------------------------------------------------------------
-
-    a.USMD_RELEASED_BY                                AS APPROVER_6_NAME,
-
-    w.WI_CREATOR                                      AS APPROVER_6_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_RELEASED_AT AS INT64)
-            ),
-
-            TIMESTAMP_MICROS(
-                CAST(a.USMD_CREATED_AT AS INT64)
-            ),
-
-            HOUR
-
-        ),
-
-        2
-
-    )                                                 AS APPROVER_6_TAT
+    )                                                 AS APPROVER_1_TAT
 
 FROM
-`sap_landing_zone.SAP_TRANSP_USMD120C` a
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
 
 LEFT JOIN
-`sap_landing_zone.SAP_TRANSP_USMD1213` b
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213` b
 ON a.USMD_CREQUEST = b.USMD_CREQUEST
 
 LEFT JOIN
-`sap_landing_zone.SAP_TRANSP_USMD2400` c
-ON a.USMD_CREQUEST = c.USMD_CREQUEST
-
-LEFT JOIN
-`sap_landing_zone.SAP_TRANSP_SWWWIHEAD` w
-ON c.TOP_WI_ID = w.WI_ID
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD2400` d
+ON a.USMD_CREQUEST = d.USMD_CREQUEST
 
 WHERE
+a.USMD_CREQ_STATUS = '05'
 
-    a.USMD_RELEASED_BY IS NOT NULL
+AND a.USMD_RELEASED_BY IS NOT NULL
 
-    AND a.USMD_RELEASED_AT IS NOT NULL
+AND a.USMD_RELEASED_AT IS NOT NULL
 
-ORDER BY
-a.USMD_CREATED_AT DESC
+)
 
+SELECT *
+FROM FINAL_REPORT
 LIMIT 200;
