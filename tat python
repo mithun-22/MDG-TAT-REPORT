@@ -1,0 +1,194 @@
+import pandas as pd
+
+# =========================================================
+# LOAD TABLES
+# =========================================================
+
+usmd120c = pd.read_csv("data/USMD120C.csv")
+
+usmd1213 = pd.read_csv("data/USMD1213.csv")
+
+usmd2400 = pd.read_csv("data/USMD2400.csv")
+
+swwwihead = pd.read_csv("data/SWWWIHEAD.csv")
+
+swwloghist = pd.read_csv("data/SWWLOGHIST.csv")
+
+# =========================================================
+# FILTER REQUIRED STATUS
+# =========================================================
+
+usmd120c = usmd120c[
+    usmd120c["USMD_CREQ_STATUS"] == "0.5"
+]
+
+# =========================================================
+# CONVERT DATES
+# =========================================================
+
+def convert_sap_timestamp(col):
+
+    return pd.to_datetime(
+        col.astype(str),
+        format="%Y%m%d%H%M%S",
+        errors="coerce"
+    )
+
+usmd120c["CREATED_DATE"] = convert_sap_timestamp(
+    usmd120c["USMD_CREATED_AT"]
+)
+
+usmd120c["RELEASED_DATE"] = convert_sap_timestamp(
+    usmd120c["USMD_RELEASED_AT"]
+)
+
+usmd120c["CHANGED_DATE"] = convert_sap_timestamp(
+    usmd120c["USMD_CHANGED_AT"]
+)
+
+# =========================================================
+# HANDLE NULL RELEASED DATE
+# =========================================================
+
+usmd120c["FINAL_RELEASED_DATE"] = usmd120c[
+    "RELEASED_DATE"
+].fillna(
+    usmd120c["CHANGED_DATE"]
+)
+
+# =========================================================
+# HANDLE NULL RELEASED BY
+# =========================================================
+
+usmd120c["FINAL_RELEASED_BY"] = usmd120c[
+    "USMD_RELEASED_BY"
+].fillna(
+    usmd120c["USMD_CHANGED_BY"]
+)
+
+# =========================================================
+# OVERALL TAT
+# =========================================================
+
+usmd120c["OVERALL_TAT_HOURS"] = (
+
+    usmd120c["FINAL_RELEASED_DATE"]
+    -
+    usmd120c["CREATED_DATE"]
+
+).dt.total_seconds() / 3600
+
+# =========================================================
+# JOIN USMD1213
+# =========================================================
+
+report = pd.merge(
+    usmd120c,
+    usmd1213,
+    on="USMD_CREQUEST",
+    how="left"
+)
+
+# =========================================================
+# JOIN USMD2400
+# =========================================================
+
+report = pd.merge(
+    report,
+    usmd2400,
+    on="USMD_CREQUEST",
+    how="left"
+)
+
+# =========================================================
+# JOIN SWWWIHEAD
+# =========================================================
+
+report = pd.merge(
+    report,
+    swwwihead,
+    left_on="TOP_WI_ID",
+    right_on="WI_ID",
+    how="left"
+)
+
+# =========================================================
+# JOIN SWWLOGHIST
+# =========================================================
+
+report = pd.merge(
+    report,
+    swwloghist,
+    left_on="TOP_WI_ID",
+    right_on="WI_ID",
+    how="left"
+)
+
+# =========================================================
+# FINAL REPORT COLUMNS
+# =========================================================
+
+final_report = pd.DataFrame({
+
+    "CR Number":
+        report["USMD_CREQUEST"],
+
+    "Type of Change Request":
+        report["USMD_CREQ_TYPE"],
+
+    "Description (Long Text)":
+        report["USMD_CREQ_TEXT"],
+
+    "Created By":
+        report["USMD_CREATED_BY"],
+
+    "Created Date":
+        report["CREATED_DATE"],
+
+    "Released By":
+        report["FINAL_RELEASED_BY"],
+
+    "Released Date":
+        report["FINAL_RELEASED_DATE"],
+
+    "Overall TAT (Hours)":
+        report["OVERALL_TAT_HOURS"],
+
+    "Characteristic Value":
+        report["USMD_VALUE"],
+
+    "Top WI ID":
+        report["TOP_WI_ID"],
+
+    "Approver 1 Name":
+        report["METH_USER"],
+
+    "Approver 1 Dept":
+        report["WI_CREATOR"],
+
+    "Approver 1 TAT":
+        report["OVERALL_TAT_HOURS"]
+
+})
+
+# =========================================================
+# LIMIT TO 100 RECORDS
+# =========================================================
+
+final_report = final_report.head(100)
+
+# =========================================================
+# EXPORT TO EXCEL
+# =========================================================
+
+output_file = "output/MDG_TAT_REPORT.xlsx"
+
+final_report.to_excel(
+    output_file,
+    index=False
+)
+
+print("===================================")
+print("REPORT GENERATED SUCCESSFULLY")
+print("===================================")
+print(output_file)
