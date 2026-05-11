@@ -1,0 +1,48 @@
+WITH REPORT_B AS (
+
+SELECT
+
+    a.USMD_CREQUEST                                                AS CR_NUMBER,
+
+    b.USMD_VALUE                                                   AS CHARACTERISTIC_VALUE,
+
+    REGEXP_EXTRACT(b.USMD_VALUE, r'^[0-9]+')                       AS MATERIAL,
+
+    RIGHT(b.USMD_VALUE, 5)                                         AS PLANT,
+
+    CONCAT(
+        REGEXP_EXTRACT(b.USMD_VALUE, r'^[0-9]+'),
+        RIGHT(b.USMD_VALUE, 5)
+    )                                                              AS PRIMARY_KEY
+
+FROM
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
+
+LEFT JOIN
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213` b
+ON a.USMD_CREQUEST = b.USMD_CREQUEST
+
+WHERE
+
+a.USMD_CREQ_TYPE IN (
+
+'ZMAT01',
+'ZMAT02',
+'E21',
+'E23',
+'O4',
+'E06',
+'M04',
+'M02',
+'NP01',
+'NP03'
+
+)
+
+AND b.USMD_VALUE IS NOT NULL
+
+)
+
+SELECT *
+FROM REPORT_B
+LIMIT 100;
