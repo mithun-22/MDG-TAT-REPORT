@@ -1,36 +1,27 @@
-WITH BASE_DATA AS (
+WITH MAIN_DATA AS (
 
 SELECT
 
-    a.USMD_CREQUEST AS CR_NUMBER,
-    a.USMD_CREQ_TYPE AS TYPE_OF_CHANGE_REQUEST,
-    a.USMD_CREQ_TEXT AS DESCRIPTION_LONG_TEXT,
+    a.USMD_CREQUEST                                         AS CR_NUMBER,
 
-    a.USMD_CREATED_BY AS CREATED_BY,
+    a.USMD_CREQ_STATUS                                      AS CREQ_STATUS_05,
+
+    a.USMD_CREQ_TEXT                                        AS DESCRIPTION_LONG_TEXT,
+
+    a.USMD_CREATED_BY                                       AS CREATED_BY,
 
     SAFE.PARSE_TIMESTAMP(
         '%Y%m%d%H%M%S',
         CAST(a.USMD_CREATED_AT AS STRING)
-    ) AS CREATED_DATE,
+    )                                                       AS CREATED_DATE,
 
-    a.USMD_RELEASED_BY AS RELEASED_BY,
+    COALESCE(
+        a.USMD_RELEASED_BY,
+        a.USMD_CHANGED_BY
+    )                                                       AS RELEASED_BY,
 
-    SAFE.PARSE_TIMESTAMP(
-        '%Y%m%d%H%M%S',
-        CAST(a.USMD_RELEASED_AT AS STRING)
-    ) AS RELEASED_DATE,
+    COALESCE(
 
-    a.USMD_CREQ_STATUS AS CR_STATUS,
-
-    b.USMD_ENTITY,
-    b.USMD_VALUE AS CHARACTERISTIC_VALUE,
-
-    c.TOP_WI_ID AS TOP_WI_ID,
-
-    d.WI_AAGENT AS APPROVER_1_NAME,
-    d.WI_CREATOR AS APPROVER_1_DEPT,
-
-    TIMESTAMP_DIFF(
         SAFE.PARSE_TIMESTAMP(
             '%Y%m%d%H%M%S',
             CAST(a.USMD_RELEASED_AT AS STRING)
@@ -38,82 +29,201 @@ SELECT
 
         SAFE.PARSE_TIMESTAMP(
             '%Y%m%d%H%M%S',
-            CAST(a.USMD_CREATED_AT AS STRING)
-        ),
+            CAST(a.USMD_CHANGED_AT AS STRING)
+        )
 
-        HOUR
-    ) AS OVERALL_TAT_HOURS
+    )                                                       AS RELEASED_DATE,
+
+    b.USMD_VALUE                                            AS CHARACTERISTIC_VALUE,
+
+    c.TOP_WI_ID                                             AS TOP_WI_ID,
+
+    w.WI_CREATOR                                            AS WORKFLOW_CREATOR,
+
+    w.WI_AAGENT                                             AS WORKFLOW_AGENT,
+
+    w.WI_CD                                                 AS WORKFLOW_CREATED_DATE,
+
+    w.WI_CT                                                 AS WORKFLOW_COMPLETED_DATE
 
 FROM
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
+`sap_landing_zone.SAP_TRANSP_USMD120C` a
 
 LEFT JOIN
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213` b
+`sap_landing_zone.SAP_TRANSP_USMD1213` b
 ON a.USMD_CREQUEST = b.USMD_CREQUEST
 
 LEFT JOIN
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD2400` c
+`sap_landing_zone.SAP_TRANSP_USMD2400` c
 ON a.USMD_CREQUEST = c.USMD_CREQUEST
 
 LEFT JOIN
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_SWWWIHEAD` d
-ON c.TOP_WI_ID = d.WI_ID
+`sap_landing_zone.SAP_TRANSP_SWWWIHEAD` w
+ON c.TOP_WI_ID = w.WI_ID
 
-WHERE a.USMD_CREQUEST IS NOT NULL
+WHERE
+a.USMD_CREQ_STATUS = '0.5'
 
 )
 
 SELECT
 
     CR_NUMBER,
-    TYPE_OF_CHANGE_REQUEST,
+
+    CREQ_STATUS_05,
+
     DESCRIPTION_LONG_TEXT,
 
     CREATED_BY,
+
     CREATED_DATE,
 
     RELEASED_BY,
+
     RELEASED_DATE,
 
-    CONCAT(
-        CAST(OVERALL_TAT_HOURS AS STRING),
-        ' Hours'
-    ) AS OVERALL_TAT,
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            RELEASED_DATE,
+            CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS OVERALL_TAT_HOURS,
 
     CHARACTERISTIC_VALUE,
 
     TOP_WI_ID,
 
-    APPROVER_1_NAME,
-    APPROVER_1_DEPT,
+    ----------------------------------------------------------------
+    -- APPROVER 1
+    ----------------------------------------------------------------
 
-    CONCAT(
-        CAST(OVERALL_TAT_HOURS AS STRING),
-        ' Hours'
-    ) AS APPROVER_1_TAT,
+    RELEASED_BY                                             AS APPROVER_1_NAME,
 
-    NULL AS APPROVER_2_NAME,
-    NULL AS APPROVER_2_DEPT,
-    NULL AS APPROVER_2_TAT,
+    WORKFLOW_CREATOR                                        AS APPROVER_1_DEPT,
 
-    NULL AS APPROVER_3_NAME,
-    NULL AS APPROVER_3_DEPT,
-    NULL AS APPROVER_3_TAT,
+    ROUND(
 
-    NULL AS APPROVER_4_NAME,
-    NULL AS APPROVER_4_DEPT,
-    NULL AS APPROVER_4_TAT,
+        TIMESTAMP_DIFF(
+            RELEASED_DATE,
+            CREATED_DATE,
+            HOUR
+        ),
 
-    NULL AS APPROVER_5_NAME,
-    NULL AS APPROVER_5_DEPT,
-    NULL AS APPROVER_5_TAT,
+        2
 
-    NULL AS APPROVER_6_NAME,
-    NULL AS APPROVER_6_DEPT,
-    NULL AS APPROVER_6_TAT
+    )                                                       AS APPROVER_1_TAT,
 
-FROM BASE_DATA
+    ----------------------------------------------------------------
+    -- APPROVER 2
+    ----------------------------------------------------------------
 
-ORDER BY CREATED_DATE DESC
+    WORKFLOW_AGENT                                          AS APPROVER_2_NAME,
 
-LIMIT 100;
+    WORKFLOW_CREATOR                                        AS APPROVER_2_DEPT,
+
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            WORKFLOW_COMPLETED_DATE,
+            WORKFLOW_CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS APPROVER_2_TAT,
+
+    ----------------------------------------------------------------
+    -- APPROVER 3
+    ----------------------------------------------------------------
+
+    WORKFLOW_AGENT                                          AS APPROVER_3_NAME,
+
+    WORKFLOW_CREATOR                                        AS APPROVER_3_DEPT,
+
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            WORKFLOW_COMPLETED_DATE,
+            WORKFLOW_CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS APPROVER_3_TAT,
+
+    ----------------------------------------------------------------
+    -- APPROVER 4
+    ----------------------------------------------------------------
+
+    WORKFLOW_AGENT                                          AS APPROVER_4_NAME,
+
+    WORKFLOW_CREATOR                                        AS APPROVER_4_DEPT,
+
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            WORKFLOW_COMPLETED_DATE,
+            WORKFLOW_CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS APPROVER_4_TAT,
+
+    ----------------------------------------------------------------
+    -- APPROVER 5
+    ----------------------------------------------------------------
+
+    WORKFLOW_AGENT                                          AS APPROVER_5_NAME,
+
+    WORKFLOW_CREATOR                                        AS APPROVER_5_DEPT,
+
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            WORKFLOW_COMPLETED_DATE,
+            WORKFLOW_CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS APPROVER_5_TAT,
+
+    ----------------------------------------------------------------
+    -- APPROVER 6
+    ----------------------------------------------------------------
+
+    WORKFLOW_AGENT                                          AS APPROVER_6_NAME,
+
+    WORKFLOW_CREATOR                                        AS APPROVER_6_DEPT,
+
+    ROUND(
+
+        TIMESTAMP_DIFF(
+            WORKFLOW_COMPLETED_DATE,
+            WORKFLOW_CREATED_DATE,
+            HOUR
+        ),
+
+        2
+
+    )                                                       AS APPROVER_6_TAT
+
+FROM MAIN_DATA
+
+WHERE
+CREATED_DATE IS NOT NULL
+
+ORDER BY
+CREATED_DATE DESC
+
+LIMIT 200;
