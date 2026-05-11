@@ -1,29 +1,28 @@
-WITH FINAL_REPORT AS (
+WITH BASE_DATA AS (
 
 SELECT
 
-    a.USMD_CREQUEST                                   AS CR_NUMBER,
+    a.USMD_CREQUEST                                      AS CR_NUMBER,
 
-    '05'                                              AS TYPE_OF_CHANGE_REQUEST,
+    a.USMD_CREQ_TYPE                                     AS TYPE_OF_CHANGE_REQUEST,
 
-    a.USMD_CREQ_TEXT                                  AS DESCRIPTION_LONG_TEXT,
+    a.USMD_CREQ_TEXT                                     AS DESCRIPTION_LONG_TEXT,
 
-    a.USMD_CREATED_BY                                 AS CREATED_BY,
+    a.USMD_CREATED_BY                                    AS CREATED_BY,
 
     PARSE_TIMESTAMP(
         '%Y%m%d%H%M%S',
         CAST(a.USMD_CREATED_AT AS STRING)
-    )                                                 AS CREATED_DATE,
+    )                                                    AS CREATED_DATE,
 
-    a.USMD_RELEASED_BY                                AS RELEASED_BY,
+    a.USMD_RELEASED_BY                                   AS RELEASED_BY,
 
     PARSE_TIMESTAMP(
         '%Y%m%d%H%M%S',
         CAST(a.USMD_RELEASED_AT AS STRING)
-    )                                                 AS RELEASED_DATE,
+    )                                                    AS RELEASED_DATE,
 
     ROUND(
-
         TIMESTAMP_DIFF(
 
             PARSE_TIMESTAMP(
@@ -39,32 +38,24 @@ SELECT
             MINUTE
 
         ) / 60.0,
-
         2
-
-    )                                                 AS OVERALL_TAT_HOURS,
+    )                                                    AS OVERALL_TAT_HOURS,
 
     CASE
 
-        WHEN ROUND(
+        WHEN TIMESTAMP_DIFF(
 
-            TIMESTAMP_DIFF(
-
-                PARSE_TIMESTAMP(
-                    '%Y%m%d%H%M%S',
-                    CAST(a.USMD_RELEASED_AT AS STRING)
-                ),
-
-                PARSE_TIMESTAMP(
-                    '%Y%m%d%H%M%S',
-                    CAST(a.USMD_CREATED_AT AS STRING)
-                ),
-
-                HOUR
-
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_RELEASED_AT AS STRING)
             ),
 
-            2
+            PARSE_TIMESTAMP(
+                '%Y%m%d%H%M%S',
+                CAST(a.USMD_CREATED_AT AS STRING)
+            ),
+
+            HOUR
 
         ) >= 24
 
@@ -130,37 +121,11 @@ SELECT
 
         )
 
-    END                                               AS OVERALL_TAT,
+    END                                                  AS OVERALL_TAT,
 
-    b.USMD_VALUE                                      AS CHARACTERISTIC_VALUE,
+    b.USMD_VALUE                                         AS CHARACTERISTIC_VALUE,
 
-    d.TOP_WI_ID                                       AS TOP_WI_ID,
-
-    a.USMD_RELEASED_BY                                AS APPROVER_1_NAME,
-
-    'MDG_APPROVAL'                                    AS APPROVER_1_DEPT,
-
-    ROUND(
-
-        TIMESTAMP_DIFF(
-
-            PARSE_TIMESTAMP(
-                '%Y%m%d%H%M%S',
-                CAST(a.USMD_RELEASED_AT AS STRING)
-            ),
-
-            PARSE_TIMESTAMP(
-                '%Y%m%d%H%M%S',
-                CAST(a.USMD_CREATED_AT AS STRING)
-            ),
-
-            MINUTE
-
-        ) / 60.0,
-
-        2
-
-    )                                                 AS APPROVER_1_TAT
+    d.TOP_WI_ID                                          AS TOP_WI_ID
 
 FROM
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
@@ -174,14 +139,60 @@ LEFT JOIN
 ON a.USMD_CREQUEST = d.USMD_CREQUEST
 
 WHERE
-a.USMD_CREQ_STATUS = '05'
+a.USMD_CREQ_TYPE IN (
+
+'ZMAT01',
+'ZMAT02',
+'E21',
+'E23',
+'O4',
+'E06',
+'M04',
+'M02',
+'NP01',
+'NP03'
+
+)
 
 AND a.USMD_RELEASED_BY IS NOT NULL
-
 AND a.USMD_RELEASED_AT IS NOT NULL
+
+),
+
+FINAL_REPORT AS (
+
+SELECT
+
+    *,
+
+    RELEASED_BY                                          AS APPROVER_1_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_1_DEPT,
+    OVERALL_TAT                                          AS APPROVER_1_TAT,
+
+    RELEASED_BY                                          AS APPROVER_2_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_2_DEPT,
+    OVERALL_TAT                                          AS APPROVER_2_TAT,
+
+    RELEASED_BY                                          AS APPROVER_3_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_3_DEPT,
+    OVERALL_TAT                                          AS APPROVER_3_TAT,
+
+    RELEASED_BY                                          AS APPROVER_4_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_4_DEPT,
+    OVERALL_TAT                                          AS APPROVER_4_TAT,
+
+    RELEASED_BY                                          AS APPROVER_5_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_5_DEPT,
+    OVERALL_TAT                                          AS APPROVER_5_TAT,
+
+    RELEASED_BY                                          AS APPROVER_6_NAME,
+    'MDG_APPROVAL'                                       AS APPROVER_6_DEPT,
+    OVERALL_TAT                                          AS APPROVER_6_TAT
+
+FROM BASE_DATA
 
 )
 
 SELECT *
 FROM FINAL_REPORT
-LIMIT 200;
+LIMIT 100;
