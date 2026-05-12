@@ -8,13 +8,21 @@ SELECT DISTINCT
     /* CHARACTERISTIC VALUE */
     b.USMD_VALUE                                               AS CHARACTERISTIC_VALUE,
 
-    /* MATERIAL CODE */
-    c._1MD_MMMATERIAL                                          AS MATERIAL_CODE,
+    /* MATERIAL CODE WITHOUT LEADING ZEROS */
+    REGEXP_REPLACE(
+        CAST(c._1MD_MMMATERIAL AS STRING),
+        r'^0+',
+        ''
+    )                                                          AS MATERIAL_CODE,
 
     /* PLANT */
     CONCAT(
         RIGHT(
-            CAST(c._1MD_MMMATERIAL AS STRING),
+            REGEXP_REPLACE(
+                CAST(c._1MD_MMMATERIAL AS STRING),
+                r'^0+',
+                ''
+            ),
             4
         ),
         '-Plant'
@@ -23,7 +31,13 @@ SELECT DISTINCT
     /* PRIMARY KEY */
     CONCAT(
         CAST(a.USMD_CREQUEST AS STRING),
-        CAST(c._1MD_MMMATERIAL AS STRING),
+
+        REGEXP_REPLACE(
+            CAST(c._1MD_MMMATERIAL AS STRING),
+            r'^0+',
+            ''
+        ),
+
         'Plant'
     )                                                          AS PRIMARY_KEY
 
@@ -48,4 +62,5 @@ LIMIT 100
 )
 
 SELECT *
+
 FROM REPORT_B;
