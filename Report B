@@ -1,31 +1,31 @@
 WITH REPORT_B AS (
 
-SELECT
+SELECT DISTINCT
 
-    /* CR NUMBER FROM USMD120C */
-    a.USMD_CREQUEST                                                AS CR_NUMBER,
+    /* CR NUMBER */
+    a.USMD_CREQUEST                                            AS CR_NUMBER,
 
-    /* CHARACTERISTIC VALUE FROM USMD1213 */
-    b.USMD_VALUE                                                   AS CHARACTERISTIC_VALUE,
+    /* CHARACTERISTIC VALUE */
+    b.USMD_VALUE                                               AS CHARACTERISTIC_VALUE,
 
-    /* MATERIAL CODE FROM 1MDMD_000 */
-    c._1MD_MMMATERIAL                                              AS MATERIAL_CODE,
+    /* MATERIAL CODE */
+    c._1MD_MMMATERIAL                                          AS MATERIAL_CODE,
 
-    /* PLANT VALUE */
+    /* PLANT */
     CONCAT(
         RIGHT(
             CAST(c._1MD_MMMATERIAL AS STRING),
             4
         ),
         '-Plant'
-    )                                                              AS PLANT,
+    )                                                          AS PLANT,
 
-    /* PRIMARY KEY = CR NUMBER + MATERIAL CODE + Plant */
+    /* PRIMARY KEY */
     CONCAT(
         CAST(a.USMD_CREQUEST AS STRING),
         CAST(c._1MD_MMMATERIAL AS STRING),
         'Plant'
-    )                                                              AS PRIMARY_KEY
+    )                                                          AS PRIMARY_KEY
 
 FROM
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
@@ -34,9 +34,8 @@ LEFT JOIN
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213` b
 ON a.USMD_CREQUEST = b.USMD_CREQUEST
 
-LEFT JOIN
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_1MDMD_000` c
-ON a.USMD_CREQUEST = c.USMDKMMATERIAL
+CROSS JOIN
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_1MDMD______00O` c
 
 WHERE
 
@@ -44,10 +43,9 @@ a.USMD_CREQ_STATUS = '05'
 
 AND c._1MD_MMMATERIAL IS NOT NULL
 
+LIMIT 100
+
 )
 
 SELECT *
-
-FROM REPORT_B
-
-LIMIT 100;
+FROM REPORT_B;
