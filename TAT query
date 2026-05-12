@@ -162,6 +162,12 @@ SELECT
 
     CASE
         WHEN RELEASED_BY = 'P00013281'
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_1_DEPT,
+
+    CASE
+        WHEN RELEASED_BY = 'P00013281'
         THEN OVERALL_TAT
         ELSE NULL
     END                                                  AS APPROVER_1_TAT,
@@ -171,6 +177,12 @@ SELECT
         THEN RELEASED_BY
         ELSE NULL
     END                                                  AS APPROVER_2_NAME,
+
+    CASE
+        WHEN RELEASED_BY = 'P00002103'
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_2_DEPT,
 
     CASE
         WHEN RELEASED_BY = 'P00002103'
@@ -186,6 +198,12 @@ SELECT
 
     CASE
         WHEN RELEASED_BY = 'P00004567'
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_3_DEPT,
+
+    CASE
+        WHEN RELEASED_BY = 'P00004567'
         THEN OVERALL_TAT
         ELSE NULL
     END                                                  AS APPROVER_3_TAT,
@@ -198,6 +216,12 @@ SELECT
 
     CASE
         WHEN RELEASED_BY = 'P00007890'
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_4_DEPT,
+
+    CASE
+        WHEN RELEASED_BY = 'P00007890'
         THEN OVERALL_TAT
         ELSE NULL
     END                                                  AS APPROVER_4_TAT,
@@ -207,6 +231,12 @@ SELECT
         THEN RELEASED_BY
         ELSE NULL
     END                                                  AS APPROVER_5_NAME,
+
+    CASE
+        WHEN RELEASED_BY = 'P00005678'
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_5_DEPT,
 
     CASE
         WHEN RELEASED_BY = 'P00005678'
@@ -225,6 +255,18 @@ SELECT
         THEN RELEASED_BY
         ELSE NULL
     END                                                  AS APPROVER_6_NAME,
+
+    CASE
+        WHEN RELEASED_BY NOT IN (
+            'P00013281',
+            'P00002103',
+            'P00004567',
+            'P00007890',
+            'P00005678'
+        )
+        THEN 'APPROVER_DEPARTMENT'
+        ELSE NULL
+    END                                                  AS APPROVER_6_DEPT,
 
     CASE
         WHEN RELEASED_BY NOT IN (
