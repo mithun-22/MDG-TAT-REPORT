@@ -4,6 +4,8 @@ SELECT
 
     a.USMD_CREQUEST                                      AS CR_NUMBER,
 
+    a.USMD_CREQ_TYPE                                     AS TYPE_OF_CHANGE_REQUEST,
+
     '05'                                                 AS CREQUEST_STATUS,
 
     a.USMD_CREQ_TEXT                                     AS DESCRIPTION_LONG_TEXT,
