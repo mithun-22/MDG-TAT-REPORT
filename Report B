@@ -2,26 +2,34 @@ WITH BASE_DATA AS (
 
 SELECT DISTINCT
 
-    a.USMD_CREQUEST AS CR_NUMBER,
+    a.USMD_CREQUEST                                                AS CR_NUMBER,
 
-    TRIM(b.USMD_VALUE) AS CHARACTERISTIC_VALUE,
+    TRIM(b.USMD_VALUE)                                             AS CHARACTERISTIC_VALUE,
 
     LPAD(
         REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
         10,
         '0'
-    ) AS MATERIAL,
+    )                                                              AS MATERIAL,
 
     CONCAT(
-        REGEXP_EXTRACT(TRIM(b.USMD_VALUE), r'[0-9]+'),
-        '-Plant'
-    ) AS PLANT,
+        a.USMD_CREQUEST,
+        LPAD(
+            REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
+            10,
+            '0'
+        ),
+        'Plant'
+    )                                                              AS PLANT,
 
-    LPAD(
-        REGEXP_EXTRACT(TRIM(b.USMD_VALUE), r'[0-9]+'),
-        10,
-        '0'
-    ) AS PRIMARY_KEY
+    CONCAT(
+        a.USMD_CREQUEST,
+        LPAD(
+            REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
+            10,
+            '0'
+        )
+    )                                                              AS PRIMARY_KEY
 
 FROM
 `drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD120C` a
@@ -36,20 +44,12 @@ ON a.USMD_CREQUEST = c.USMD_CREQUEST
 
 WHERE
 
-a.USMD_CREQ_TYPE IN (
-'ZMAT01',
-'ZMAT02',
-'E21',
-'E23',
-'O4',
-'E06',
-'M04',
-'M02',
-'NP01',
-'NP03'
-)
+a.USMD_CREQ_STATUS = '05'
+
+AND a.USMD_CREQUEST IS NOT NULL
 
 AND b.USMD_VALUE IS NOT NULL
+
 AND c.USMD_VALUE IS NOT NULL
 
 )
@@ -63,9 +63,5 @@ PLANT,
 PRIMARY_KEY
 
 FROM BASE_DATA
-
-WHERE
-PLANT IS NOT NULL
-AND PRIMARY_KEY IS NOT NULL
 
 LIMIT 100;
