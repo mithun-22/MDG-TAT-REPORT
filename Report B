@@ -1,34 +1,30 @@
-WITH BASE_DATA AS (
+WITH REPORT_B AS (
 
-SELECT DISTINCT
+SELECT
 
+    /* CR NUMBER FROM USMD120C */
     a.USMD_CREQUEST                                                AS CR_NUMBER,
 
-    TRIM(b.USMD_VALUE)                                             AS CHARACTERISTIC_VALUE,
+    /* CHARACTERISTIC VALUE FROM USMD1213 */
+    b.USMD_VALUE                                                   AS CHARACTERISTIC_VALUE,
 
-    LPAD(
-        REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
-        10,
-        '0'
-    )                                                              AS MATERIAL,
+    /* MATERIAL CODE FROM 1MDMD_000 */
+    c._1MD_MMMATERIAL                                              AS MATERIAL_CODE,
 
+    /* PLANT VALUE */
     CONCAT(
-        a.USMD_CREQUEST,
-        LPAD(
-            REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
-            10,
-            '0'
+        RIGHT(
+            CAST(c._1MD_MMMATERIAL AS STRING),
+            4
         ),
-        'Plant'
+        '-Plant'
     )                                                              AS PLANT,
 
+    /* PRIMARY KEY = CR NUMBER + MATERIAL CODE + Plant */
     CONCAT(
-        a.USMD_CREQUEST,
-        LPAD(
-            REGEXP_EXTRACT(TRIM(c.USMD_VALUE), r'[0-9]+'),
-            10,
-            '0'
-        )
+        CAST(a.USMD_CREQUEST AS STRING),
+        CAST(c._1MD_MMMATERIAL AS STRING),
+        'Plant'
     )                                                              AS PRIMARY_KEY
 
 FROM
@@ -39,29 +35,19 @@ LEFT JOIN
 ON a.USMD_CREQUEST = b.USMD_CREQUEST
 
 LEFT JOIN
-`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_USMD1213` c
-ON a.USMD_CREQUEST = c.USMD_CREQUEST
+`drl-centrummdm-prod.sap_landing_zone.SAP_TRANSP_1MDMD_000` c
+ON a.USMD_CREQUEST = c.USMDKMMATERIAL
 
 WHERE
 
 a.USMD_CREQ_STATUS = '05'
 
-AND a.USMD_CREQUEST IS NOT NULL
-
-AND b.USMD_VALUE IS NOT NULL
-
-AND c.USMD_VALUE IS NOT NULL
+AND c._1MD_MMMATERIAL IS NOT NULL
 
 )
 
-SELECT DISTINCT
+SELECT *
 
-CR_NUMBER,
-CHARACTERISTIC_VALUE,
-MATERIAL,
-PLANT,
-PRIMARY_KEY
-
-FROM BASE_DATA
+FROM REPORT_B
 
 LIMIT 100;
