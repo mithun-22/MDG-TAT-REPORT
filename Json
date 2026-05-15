@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "properties": {
+    "IssuerName": {
+      "type": "string"
+    },
+    "ContactEmail": {
+      "type": "string"
+    },
+    "ContactNumber": {
+      "type": "string"
+    },
+    "Country": {
+      "type": "string"
+    },
+    "EANNumber": {
+      "type": "string"
+    },
+    "ProductNumber": {
+      "type": "string"
+    },
+    "ClaimAmount": {
+      "type": "string"
+    },
+    "ClaimCurrency": {
+      "type": "string"
+    },
+    "ReferenceNumber": {
+      "type": "string"
+    },
+    "ReferenceDescription": {
+      "type": "string"
+    },
+    "TaxPercent": {
+      "type": "string"
+    },
+    "TaxAmount": {
+      "type": "string"
+    }
+  }
+}
