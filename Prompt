@@ -1,0 +1,129 @@
+Enterprise MDM Equipment Master Enhancement Prompt
+
+You are a Principal Software Architect, Senior Full Stack Developer, SAP MDM Consultant, and Streamlit Expert.
+
+Objective
+
+Enhance the existing Streamlit Equipment Master MDM POC into a production-ready enterprise application similar to the IBM Lotus Notes Equipment Master.
+
+Important
+
+* Extend the existing project; do not rewrite it.
+* Preserve all working features.
+* No placeholders, TODOs, dummy logic, mock data, or incomplete implementations.
+* Every UI component, button, API, form, and workflow must be fully functional.
+* Continue implementing until every requested feature is complete.
+
+Architecture
+
+Follow SOLID principles with a clean layered architecture:
+
+* UI
+* Business Logic
+* Services
+* Data Layer
+* Validation
+* Utilities
+* Config
+* Logging
+* Exception Handling
+
+Use reusable components, modular code, environment variables, configuration files, meaningful naming, and production-quality code.
+
+UI
+
+Create a modern enterprise UI with:
+
+* Responsive layout
+* Sidebar, Topbar, Breadcrumbs
+* Dashboard
+* Professional theme
+* Dark/Light mode
+* KPI cards
+* AG-Grid style tables
+* Search, Sort, Filter, Pagination
+* Column resize/hide
+* Saved filters
+* Skeleton loaders
+* Toasts
+* Dialogs
+* Status badges
+* Export options
+
+Dashboard
+
+Include:
+Pending, Approved, Rejected, Returned, SAP Pending, SAP Success, SAP Failed, Today’s Requests, Monthly Requests, SLA, TAT, Charts, Trends, Notifications, Recent Activities, My Tasks.
+
+Equipment Master
+
+Implement complete:
+CRUD, Clone, Copy, Draft, Versioning, Duplicate Detection, Bulk Upload/Edit/Delete, Attachments, Preview, Print, PDF, Excel, CSV Export.
+
+Forms
+
+Support:
+Dynamic fields, Dependent dropdowns, Auto-complete, Real-time validation, Mandatory checks, Business rules, Duplicate validation, Cross-field validation, Date validation, Character limits.
+
+Workflow
+
+Implement:
+Submit, Approve, Reject, Return, Delegate, Reassign, Withdraw, Cancel, Reopen, Escalation, SLA Tracking, Timeline, Workflow History, Approval Comments.
+
+Search
+
+Global Search, Advanced Search, Saved Search, Recent Search, Multi-filter Search.
+
+Audit
+
+Track every change:
+Before/After values, User, Timestamp, Activity Log, Complete Audit History.
+
+Notifications
+
+Implement:
+In-App Notifications, Reminder Alerts, Approval Alerts, SAP Alerts, Validation Alerts, Notification History.
+
+Document Management
+
+Multiple Attachments, Preview, Download, Delete, Versioning.
+
+Reports
+
+Generate:
+Equipment, Workflow, Pending, Audit, User Activity, SAP Reports with PDF, CSV, Excel export.
+
+Admin
+
+Role Management, Permission Matrix, Workflow Configuration, Master Configuration, Dropdown Management, Application Settings.
+
+Security
+
+Role-Based Access Control, Secure Authentication, Session Timeout, Encryption, Input Validation, CSRF/XSS Protection.
+
+Database
+
+Design scalable schema with audit fields, soft delete, indexes, reusable masters, Created/Modified metadata.
+
+SAP Ready
+
+Do not integrate SAP now.
+Create complete abstraction/service layer for:
+Create, Update, Delete, Status, Retry Queue, Payload Builder, Response Parser, Logs.
+Future SAP integration should require minimal code changes.
+
+Performance
+
+Caching, Pagination, Optimized Queries, Background Tasks, Lazy Loading.
+
+Quality
+
+Every feature must be connected end-to-end.
+No broken navigation.
+No dead code.
+No unused imports.
+No runtime errors.
+No console errors.
+Handle all exceptions gracefully with proper logging and user-friendly messages.
+
+Build the application to enterprise standards, matching Lotus Notes Equipment Master behavior while keeping the code scalable, reusable, maintainable, and production-ready.
