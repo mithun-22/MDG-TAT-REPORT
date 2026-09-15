@@ -1,4 +1,6 @@
-Sub ExportTodaysEmails()
+Option Explicit
+
+Sub Export_Informatica_Emails()
 
     Dim OutlookApp As Object
     Dim OutlookNS As Object
@@ -6,53 +8,85 @@ Sub ExportTodaysEmails()
     Dim Items As Object
     Dim Mail As Object
     Dim ws As Worksheet
+
     Dim i As Long
-    Dim Row As Long
-    Dim TodayDate As Date
+    Dim r As Long
+    Dim SenderEmail As String
+    Dim StartDate As Date
+    Dim EndDate As Date
 
+    '====================================================
+    ' CHANGE THIS ONLY IF THE SENDER EMAIL IS DIFFERENT
+    '====================================================
+    SenderEmail = "admin@informaticacloud.com"
+
+    StartDate = Date
+    EndDate = Date + 1
+
+    'Create Excel sheet
     Set ws = ActiveSheet
-    TodayDate = Date
-
-    ' Headers
     ws.Cells.Clear
 
+    'Headers
     ws.Cells(1, 1).Value = "Received Date"
-    ws.Cells(1, 2).Value = "Sender"
-    ws.Cells(1, 3).Value = "Subject"
-    ws.Cells(1, 4).Value = "Email Body"
+    ws.Cells(1, 2).Value = "Sender Name"
+    ws.Cells(1, 3).Value = "Sender Email"
+    ws.Cells(1, 4).Value = "Subject"
+    ws.Cells(1, 5).Value = "Email Body"
 
-    Row = 2
+    ws.Rows(1).Font.Bold = True
 
-    ' Connect to Outlook
-    Set OutlookApp = CreateObject("Outlook.Application")
+    r = 2
+
+    'Connect to Outlook
+    On Error Resume Next
+    Set OutlookApp = GetObject(, "Outlook.Application")
+
+    If OutlookApp Is Nothing Then
+        Set OutlookApp = CreateObject("Outlook.Application")
+    End If
+
+    On Error GoTo 0
+
     Set OutlookNS = OutlookApp.GetNamespace("MAPI")
 
-    ' Select your mailbox/folder
+    'Select Outlook folder
+    MsgBox "Please select the IICS Job Alerts folder.", vbInformation
+
     Set Folder = OutlookNS.PickFolder
 
     If Folder Is Nothing Then
-        MsgBox "No folder selected."
+        MsgBox "No folder selected.", vbExclamation
         Exit Sub
     End If
 
     Set Items = Folder.Items
+
     Items.Sort "[ReceivedTime]", True
 
-    ' Process emails
+    'Read emails
     For i = 1 To Items.Count
 
         If TypeName(Items(i)) = "MailItem" Then
 
             Set Mail = Items(i)
 
-            If DateValue(Mail.ReceivedTime) = TodayDate Then
+            'Today's emails only
+            If Mail.ReceivedTime >= StartDate _
+               And Mail.ReceivedTime < EndDate Then
 
-                ws.Cells(Row, 1).Value = Mail.ReceivedTime
-                ws.Cells(Row, 2).Value = Mail.SenderName
-                ws.Cells(Row, 3).Value = Mail.Subject
-                ws.Cells(Row, 4).Value = Mail.Body
+                'Check sender
+                If LCase(GetSenderSMTP(Mail)) = LCase(SenderEmail) Then
 
-                Row = Row + 1
+                    ws.Cells(r, 1).Value = Mail.ReceivedTime
+                    ws.Cells(r, 2).Value = Mail.SenderName
+                    ws.Cells(r, 3).Value = GetSenderSMTP(Mail)
+                    ws.Cells(r, 4).Value = Mail.Subject
+                    ws.Cells(r, 5).Value = Mail.Body
+
+                    r = r + 1
+
+                End If
 
             End If
 
@@ -60,11 +94,52 @@ Sub ExportTodaysEmails()
 
     Next i
 
-    ' Formatting
-    ws.Columns("A:C").AutoFit
-    ws.Columns("D").ColumnWidth = 80
-    ws.Rows("1:1").Font.Bold = True
+    'Formatting
+    ws.Columns("A").AutoFit
+    ws.Columns("B").AutoFit
+    ws.Columns("C").AutoFit
+    ws.Columns("D").ColumnWidth = 50
+    ws.Columns("E").ColumnWidth = 100
 
-    MsgBox (Row - 2) & " emails exported successfully!"
+    ws.Rows.AutoFit
+
+    'Freeze header
+    ActiveWindow.SplitRow = 1
+    ActiveWindow.FreezePanes = True
+
+    MsgBox (r - 2) & " Informatica emails exported successfully!", _
+           vbInformation, "Completed"
 
 End Sub
+
+
+'====================================================
+' GET ACTUAL SMTP EMAIL ADDRESS
+'====================================================
+
+Function GetSenderSMTP(Mail As Object) As String
+
+    On Error Resume Next
+
+    Dim Sender As Object
+
+    Set Sender = Mail.Sender
+
+    If Not Sender Is Nothing Then
+
+        If Sender.AddressEntryUserType = 0 Then
+            GetSenderSMTP = Sender.PropertyAccessor.GetProperty( _
+                "http://schemas.microsoft.com/mapi/proptag/0x39FE001E")
+        Else
+            GetSenderSMTP = Sender.Address
+        End If
+
+    End If
+
+    If GetSenderSMTP = "" Then
+        GetSenderSMTP = Mail.SenderEmailAddress
+    End If
+
+    On Error GoTo 0
+
+End Function
