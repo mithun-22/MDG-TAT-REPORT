@@ -97,7 +97,7 @@ Admin
 
 Role Management, Permission Matrix, Workflow Configuration, Master Configuration, Dropdown Management, Application Settings.
 
-Security 'AIzaSyD07KQpTjCCkG6yoe3B_q_q72nwoWfr2Cg1'
+Security 
 
 Role-Based Access Control, Secure Authentication, Session Timeout, Encryption, Input Validation, CSRF/XSS Protection.
 
